@@ -1,27 +1,31 @@
 import streamlit as st
 from PIL import Image
-import pytesseract
-import io
+import torch
+from transformers import TrOCRProcessor, VisionEncoderDecoderModel
 
-st.set_page_config(page_title="OCR Online", layout="centered")
-st.title("📄 Leitor de Imagem com OCR (Tesseract)")
-st.write("Envie uma imagem para extrair o texto.")
+st.title("📄 OCR com IA (100% online)")
 
-# Upload da imagem
-imagem = st.file_uploader("📤 Envie uma imagem (.jpg, .png, .jpeg)", type=["jpg", "png", "jpeg"])
+imagem = st.file_uploader("📤 Envie uma imagem com texto", type=["jpg", "jpeg", "png"])
+
+@st.cache_resource
+def carregar_modelo():
+    processor = TrOCRProcessor.from_pretrained("microsoft/trocr-base-stage1")
+    model = VisionEncoderDecoderModel.from_pretrained("microsoft/trocr-base-stage1")
+    return processor, model
 
 if imagem:
-    # Exibir imagem carregada
-    img = Image.open(imagem)
-    st.image(img, caption="Imagem enviada", use_column_width=True)
+    img = Image.open(imagem).convert("RGB")
+    st.image(img, caption="Imagem enviada", use_container_width=True)
 
-    st.info("⏳ Realizando OCR, aguarde...")
+    st.info("⏳ Realizando OCR com modelo TrOCR...")
 
-    # OCR com Tesseract
-    texto = pytesseract.image_to_string(img, lang="por")  # 'por' = português
+    processor, model = carregar_modelo()
+    pixel_values = processor(images=img, return_tensors="pt").pixel_values
+    generated_ids = model.generate(pixel_values)
+    texto = processor.batch_decode(generated_ids, skip_special_tokens=True)[0]
 
     if texto.strip():
-        st.success("✅ Texto extraído com sucesso:")
-        st.text_area("📝 Texto detectado:", texto.strip(), height=400)
+        st.success("✅ Texto detectado:")
+        st.text_area("📝", texto.strip(), height=300)
     else:
-        st.warning("⚠️ Nenhum texto foi encontrado na imagem.")
+        st.warning("⚠️ Nenhum texto encontrado.")

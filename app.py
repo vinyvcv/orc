@@ -12,14 +12,15 @@ if uploaded_file:
     image = Image.open(uploaded_file).convert("RGB")
     st.image(image, caption="Imagem enviada", use_container_width=True)
 
-    st.info("⏳ Lendo o texto da imagem...")
+    st.info("⏳ Realizando OCR, por favor aguarde...")
 
-    reader = easyocr.Reader(['pt'])  # OCR em português
+    # Inicializa leitor com idioma português
+    reader = easyocr.Reader(['pt'], gpu=False)
     resultado = reader.readtext(np.array(image), detail=0, paragraph=True)
     texto = "\n".join(resultado)
 
     if texto.strip():
-        st.success("✅ Texto extraído:")
-        st.text_area("📝", texto.strip(), height=300)
+        st.success("✅ Texto detectado:")
+        st.text_area("📝", texto.strip(), height=400)
     else:
-        st.warning("⚠️ Nenhum texto detectado.")
+        st.warning("⚠️ Nenhum texto encontrado.")

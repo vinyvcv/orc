@@ -1,69 +1,27 @@
 import streamlit as st
-import subprocess
-import os
-import time
-import json
-import uuid
+from PIL import Image
+import pytesseract
+import io
 
-# Função para extrair o texto de um JSON do Docling
-def extrair_texto(obj):
-    textos = []
-    if isinstance(obj, dict):
-        for k, v in obj.items():
-            if k == "text" and isinstance(v, str):
-                textos.append(v.strip())
-            else:
-                textos.extend(extrair_texto(v))
-    elif isinstance(obj, list):
-        for item in obj:
-            textos.extend(extrair_texto(item))
-    return textos
-
-# Título do app
-st.title("🧾 Leitor de Imagem com OCR (Docling)")
+st.set_page_config(page_title="OCR Online", layout="centered")
+st.title("📄 Leitor de Imagem com OCR (Tesseract)")
+st.write("Envie uma imagem para extrair o texto.")
 
 # Upload da imagem
-uploaded_file = st.file_uploader("📷 Envie uma imagem (.jpg, .png, .pdf)", type=["jpg", "png", "jpeg", "pdf"])
+imagem = st.file_uploader("📤 Envie uma imagem (.jpg, .png, .jpeg)", type=["jpg", "png", "jpeg"])
 
-if uploaded_file:
-    # Nome temporário para salvar
-    unique_id = uuid.uuid4().hex
-    nome_entrada = f"temp_{unique_id}_{uploaded_file.name}"
-    nome_json = os.path.splitext(nome_entrada)[0] + ".json"
+if imagem:
+    # Exibir imagem carregada
+    img = Image.open(imagem)
+    st.image(img, caption="Imagem enviada", use_column_width=True)
 
-    # Salvar a imagem enviada
-    with open(nome_entrada, "wb") as f:
-        f.write(uploaded_file.read())
+    st.info("⏳ Realizando OCR, aguarde...")
 
-    st.info("⏳ Lendo a imagem... Isso pode levar alguns segundos...")
+    # OCR com Tesseract
+    texto = pytesseract.image_to_string(img, lang="por")  # 'por' = português
 
-    # Rodar o Docling
-    subprocess.run(["docling", nome_entrada, "--ocr", "--to", "json"])
-
-    # Esperar o JSON ser criado
-    for _ in range(20):
-        if os.path.exists(nome_json):
-            break
-        time.sleep(0.5)
+    if texto.strip():
+        st.success("✅ Texto extraído com sucesso:")
+        st.text_area("📝 Texto detectado:", texto.strip(), height=400)
     else:
-        st.error("❌ Erro: JSON não foi gerado. Verifique o conteúdo da imagem.")
-        st.stop()
-
-    # Ler e extrair texto
-    try:
-        with open(nome_json, "r", encoding="utf-8") as f:
-            data = json.load(f)
-            textos = extrair_texto(data)
-    except Exception as e:
-        st.error(f"❌ Erro ao processar o JSON: {e}")
-        st.stop()
-
-    if textos:
-        st.success("✅ Texto extraído da imagem:")
-        st.text_area("📝 Texto reconhecido:", "\n\n".join(textos), height=400)
-    else:
-        st.warning("⚠️ Nenhum texto encontrado na imagem.")
-
-    # Limpar arquivos temporários
-    os.remove(nome_entrada)
-    os.remove(nome_json)
+        st.warning("⚠️ Nenhum texto foi encontrado na imagem.")
